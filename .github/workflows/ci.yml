@@ -11,20 +11,6 @@ jobs:
     name: Build, Lint, and Test
     runs-on: ubuntu-latest
 
-    services:
-      minio:
-        image: minio/minio:latest
-        ports:
-          - 9000:9000
-        env:
-          MINIO_ROOT_USER: minioadmin
-          MINIO_ROOT_PASSWORD: minioadmin
-        options: >-
-          --health-cmd "curl -f http://localhost:9000/minio/health/live"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 5
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -44,12 +30,33 @@ jobs:
       - name: Check Formatting
         run: npm run format:check
 
+      - name: Start MinIO Service
+        run: |
+          docker run -d \
+            --name minio \
+            -p 9000:9000 \
+            -e MINIO_ROOT_USER=minioadmin \
+            -e MINIO_ROOT_PASSWORD=minioadmin \
+            minio/minio:latest \
+            server /data
+
+          # Wait for MinIO to be ready
+          echo "Waiting for MinIO..."
+          count=0
+          until curl -s http://localhost:9000/minio/health/live > /dev/null; do
+            sleep 1
+            count=$((count+1))
+            if [ $count -ge 30 ]; then
+              echo "MinIO failed to start"
+              docker logs minio
+              exit 1
+            fi
+          done
+          echo "MinIO is ready!"
+
       - name: Setup MinIO Bucket
-        # We use a docker container to run mc (MinIO Client) to create the bucket
-        # --network host allows it to access the minio service running on localhost:9000
         run: |
           docker run --rm --network host --entrypoint /bin/sh minio/mc -c "
-            # Wait a moment for service to be fully ready if needed, though healthcheck covers most of it
             mc alias set minio http://localhost:9000 minioadmin minioadmin;
             mc mb minio/downloads --ignore-existing;
             echo 'Bucket created';
