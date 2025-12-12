@@ -17,7 +17,7 @@ services:
       - S3_ENDPOINT=http://delineate-minio:9000
       - S3_ACCESS_KEY_ID=minioadmin
       - S3_SECRET_ACCESS_KEY=minioadmin
-      - S3_BUCKET_NAME=downloads
+      - S3_BUCKET_NAME=
       - S3_FORCE_PATH_STYLE=true
     depends_on:
       delineate-minio:
@@ -39,7 +39,7 @@ services:
       - minio_data:/data
     command: server /data --console-address ":9001"
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      test: [ "CMD", "curl", "-f", "http://localhost:9000/minio/health/live" ]
       interval: 30s
       timeout: 20s
       retries: 3
@@ -51,13 +51,7 @@ services:
       delineate-minio:
         condition: service_healthy
     entrypoint: >
-      /bin/sh -c "
-      echo 'Waiting for MinIO to be ready...';
-      sleep 5;
-      /usr/bin/mc alias set minio http://delineate-minio:9000 minioadmin minioadmin;
-      /usr/bin/mc mb minio/downloads --ignore-existing;
-      echo 'MinIO bucket setup completed';
-      "
+      /bin/sh -c " echo 'Waiting for MinIO to be ready...'; sleep 5; /usr/bin/mc alias set minio http://delineate-minio:9000 minioadmin minioadmin; /usr/bin/mc mb minio/downloads --ignore-existing; echo 'MinIO bucket setup completed'; "
 
   delineate-jaeger:
     image: jaegertracing/all-in-one:latest
@@ -66,6 +60,21 @@ services:
       - "4318:4318"
     environment:
       - COLLECTOR_OTLP_ENABLED=true
+
+  delineate-frontend:
+    build:
+      context: ../frontend
+      dockerfile: Dockerfile.dev
+    ports:
+      - "5173:5173"
+    volumes:
+      - ../frontend/src:/app/src
+      - ../frontend/.env:/app/.env
+    environment:
+      - VITE_API_URL=http://localhost:3000
+      - VITE_SENTRY_DSN=
+    depends_on:
+      - delineate-app
 
 volumes:
   minio_data:
