@@ -1,0 +1,14 @@
+FROM node:24-alpine
+
+WORKDIR /app
+
+COPY package*.json ./
+
+RUN npm install
+
+COPY . .
+
+EXPOSE 3000
+
+# Use environment variables from Docker Compose instead of .env file
+CMD ["sh", "-c", "DOWNLOAD_DELAY_MIN_MS=5000 DOWNLOAD_DELAY_MAX_MS=15000 node --experimental-transform-types --watch src/index.ts"]

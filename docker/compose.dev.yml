@@ -1,0 +1,71 @@
+name: delineate
+
+services:
+  delineate-app:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.dev
+    ports:
+      - "3000:3000"
+    volumes:
+      - ../src:/app/src
+    env_file:
+      - ../.env
+    environment:
+      - NODE_ENV=development
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://delineate-jaeger:4318
+      - S3_ENDPOINT=http://delineate-minio:9000
+      - S3_ACCESS_KEY_ID=minioadmin
+      - S3_SECRET_ACCESS_KEY=minioadmin
+      - S3_BUCKET_NAME=downloads
+      - S3_FORCE_PATH_STYLE=true
+    depends_on:
+      delineate-minio:
+        condition: service_healthy
+      delineate-jaeger:
+        condition: service_started
+      delineate-minio-init:
+        condition: service_completed_successfully
+
+  delineate-minio:
+    image: minio/minio:latest
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      - MINIO_ROOT_USER=minioadmin
+      - MINIO_ROOT_PASSWORD=minioadmin
+    volumes:
+      - minio_data:/data
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+      start_period: 40s
+
+  delineate-minio-init:
+    image: minio/mc:latest
+    depends_on:
+      delineate-minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      echo 'Waiting for MinIO to be ready...';
+      sleep 5;
+      /usr/bin/mc alias set minio http://delineate-minio:9000 minioadmin minioadmin;
+      /usr/bin/mc mb minio/downloads --ignore-existing;
+      echo 'MinIO bucket setup completed';
+      "
+
+  delineate-jaeger:
+    image: jaegertracing/all-in-one:latest
+    ports:
+      - "16686:16686"
+      - "4318:4318"
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
+
+volumes:
+  minio_data:
