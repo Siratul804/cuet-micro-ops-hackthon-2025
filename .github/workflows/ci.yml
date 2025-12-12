@@ -1,0 +1,70 @@
+name: CI
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master" ]
+
+jobs:
+  ci:
+    name: Build, Lint, and Test
+    runs-on: ubuntu-latest
+
+    services:
+      minio:
+        image: minio/minio:latest
+        ports:
+          - 9000:9000
+        env:
+          MINIO_ROOT_USER: minioadmin
+          MINIO_ROOT_PASSWORD: minioadmin
+        options: >-
+          --health-cmd "curl -f http://localhost:9000/minio/health/live"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '23'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci --ignore-engines
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Check Formatting
+        run: npm run format:check
+
+      - name: Setup MinIO Bucket
+        # We use a docker container to run mc (MinIO Client) to create the bucket
+        # --network host allows it to access the minio service running on localhost:9000
+        run: |
+          docker run --rm --network host --entrypoint /bin/sh minio/mc -c "
+            # Wait a moment for service to be fully ready if needed, though healthcheck covers most of it
+            mc alias set minio http://localhost:9000 minioadmin minioadmin;
+            mc mb minio/downloads --ignore-existing;
+            echo 'Bucket created';
+          "
+
+      - name: Run E2E Tests
+        env:
+          NODE_ENV: test
+          S3_ENDPOINT: http://localhost:9000
+          S3_ACCESS_KEY_ID: minioadmin
+          S3_SECRET_ACCESS_KEY: minioadmin
+          S3_BUCKET_NAME: downloads
+          S3_FORCE_PATH_STYLE: true
+          PORT: 3000
+        run: npm run test:e2e
+
+      - name: Build Docker Image
+        run: docker build . -f docker/Dockerfile.prod -t delineate-app:latest

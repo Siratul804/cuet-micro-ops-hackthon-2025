@@ -548,6 +548,32 @@ npm run docker:prod  # Start with Docker (production)
 └── eslint.config.mjs
 ```
 
+## CI/CD Pipeline
+
+![CI Status](https://github.com/Siratul804/cuet-micro-ops-hackthon-2025/actions/workflows/ci.yml/badge.svg)
+
+This project includes a comprehensive CI/CD pipeline using GitHub Actions. The pipeline automatically runs on every push to `main` and pull requests.
+
+### Pipeline Workflow
+
+1. **Linting**: Verifies code quality with ESLint
+2. **Formatting**: Checks code style with Prettier
+3. **E2E Testing**: Runs full integration tests with MinIO
+4. **Build**: Verifies Docker image compilation
+
+### Local Validation
+
+Before pushing, contributors should run:
+
+```bash
+# Check code style
+npm run lint
+npm run format:check
+
+# Run tests (ensure MinIO is running, e.g. via 'npm run docker:dev' or verify 'npm run test:e2e' passes)
+npm run test:e2e
+```
+
 ## Security Features
 
 - Request ID tracking for distributed tracing
