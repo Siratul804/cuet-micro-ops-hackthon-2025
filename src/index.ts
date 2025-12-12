@@ -144,7 +144,7 @@ app.use(async (c, next) => {
     if (traceId) {
       // Add trace ID to response headers for frontend correlation
       c.header("x-trace-id", traceId);
-      
+
       // Tag Sentry with trace ID for error correlation
       try {
         const sentryInstance = c.get("sentry");
@@ -173,16 +173,16 @@ app.onError((err, c) => {
     const sentryInstance = c.get("sentry");
     // Get trace ID from OpenTelemetry context if available
     const traceId = c.req.header("traceparent")?.split("-")[1];
-    
+
     // Add context to Sentry error
     if (traceId) {
       sentryInstance.setTag("trace_id", traceId);
     }
-    
+
     // Get request ID
     const requestId = c.res.headers.get("x-custom-request-id");
     sentryInstance.captureException(err);
-    
+
     return c.json(
       {
         error: "Internal Server Error",
@@ -193,7 +193,7 @@ app.onError((err, c) => {
         requestId,
         traceId,
       },
-      500
+      500,
     );
   } catch {
     // Fallback error handler
@@ -202,7 +202,7 @@ app.onError((err, c) => {
         error: "Internal Server Error",
         message: "An unexpected error occurred",
       },
-      500
+      500,
     );
   }
 });
@@ -328,7 +328,7 @@ const checkS3Health = async (): Promise<boolean> => {
 
 // S3 availability check
 const checkS3Availability = async (
-  fileId: number
+  fileId: number,
 ): Promise<{
   available: boolean;
   s3Key: string | null;
@@ -437,7 +437,7 @@ app.openapi(healthRoute, async (c) => {
         storage: storageHealthy ? ("ok" as const) : ("error" as const),
       },
     },
-    httpStatus
+    httpStatus,
   );
 }); // Download API Routes
 const downloadInitiateRoute = createRoute({
@@ -542,7 +542,7 @@ app.openapi(downloadInitiateRoute, (c) => {
       status: "queued" as const,
       totalFileIds: file_ids.length,
     },
-    200
+    200,
   );
 });
 
@@ -553,7 +553,7 @@ app.openapi(downloadCheckRoute, async (c) => {
   // Intentional error for Sentry testing (hackathon challenge)
   if (sentry_test === "true") {
     throw new Error(
-      `Sentry test error triggered for file_id=${String(file_id)} - This should appear in Sentry!`
+      `Sentry test error triggered for file_id=${String(file_id)} - This should appear in Sentry!`,
     );
   }
 
@@ -563,7 +563,7 @@ app.openapi(downloadCheckRoute, async (c) => {
       file_id,
       ...s3Result,
     },
-    200
+    200,
   );
 });
 
@@ -623,7 +623,7 @@ app.openapi(downloadStartRoute, async (c) => {
   const minDelaySec = (env.DOWNLOAD_DELAY_MIN_MS / 1000).toFixed(0);
   const maxDelaySec = (env.DOWNLOAD_DELAY_MAX_MS / 1000).toFixed(0);
   console.log(
-    `[Download] Starting file_id=${String(file_id)} | delay=${delaySec}s (range: ${minDelaySec}s-${maxDelaySec}s) | enabled=${String(env.DOWNLOAD_DELAY_ENABLED)}`
+    `[Download] Starting file_id=${String(file_id)} | delay=${delaySec}s (range: ${minDelaySec}s-${maxDelaySec}s) | enabled=${String(env.DOWNLOAD_DELAY_ENABLED)}`,
   );
 
   // Simulate long-running download process
@@ -634,7 +634,7 @@ app.openapi(downloadStartRoute, async (c) => {
   const processingTimeMs = Date.now() - startTime;
 
   console.log(
-    `[Download] Completed file_id=${String(file_id)}, actual_time=${String(processingTimeMs)}ms, available=${String(s3Result.available)}`
+    `[Download] Completed file_id=${String(file_id)}, actual_time=${String(processingTimeMs)}ms, available=${String(s3Result.available)}`,
   );
 
   if (s3Result.available) {
@@ -647,7 +647,7 @@ app.openapi(downloadStartRoute, async (c) => {
         processingTimeMs,
         message: `Download ready after ${(processingTimeMs / 1000).toFixed(1)} seconds`,
       },
-      200
+      200,
     );
   } else {
     return c.json(
@@ -659,7 +659,7 @@ app.openapi(downloadStartRoute, async (c) => {
         processingTimeMs,
         message: `File not found after ${(processingTimeMs / 1000).toFixed(1)} seconds of processing`,
       },
-      200
+      200,
     );
   }
 });
@@ -718,7 +718,7 @@ const server = serve(
     if (env.NODE_ENV !== "production") {
       console.log(`API docs: http://localhost:${String(info.port)}/docs`);
     }
-  }
+  },
 );
 
 // Register shutdown handlers

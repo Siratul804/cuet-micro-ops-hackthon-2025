@@ -90,45 +90,45 @@ graph TB
     FE --> CF
     CF --> NG
     NG --> API
-    
+
     %% API to processing
     API --> Initiate
     Initiate --> Queue
     Initiate --> DB
-    
+
     %% Queue processing
     Queue --> W1
     Queue --> W2
     Queue --> WN
-    
+
     %% Workers to storage
     W1 --> S3
     W2 --> S3
     WN --> S3
-    
+
     W1 --> Redis
     W2 --> Redis
     WN --> Redis
-    
+
     %% Status & result flows
     API --> Status
     Status --> Redis
-    
+
     API --> Result
     Result --> S3
-    
+
     %% Health check
     API --> Health
     Health --> Redis
     Health --> S3
     Health --> DB
-    
+
     %% Observability
     API --> Monitor
     W1 --> Monitor
     W2 --> Monitor
     WN --> Monitor
-    
+
     %% Webhook/callback
     W1 -->|Callback| FE
     W2 -->|Callback| FE
@@ -136,6 +136,7 @@ graph TB
 ```
 
 ## Technical Approach: Hybrid Pattern
+
 ### Core Flow
 
 1. **Immediate Response**: Client gets `jobId` instantly (< 100ms)
@@ -192,34 +193,34 @@ sequenceDiagram
     API->>Queue: Enqueue download job
     API-->>Proxy: 202 Accepted (jobId: abc123)
     Proxy-->>User: 202 Accepted (jobId: abc123)
-    
+
     %% Step 2: Immediate Status Check
     User->>Proxy: GET /download/status/abc123
     Proxy->>API: Forward request
     API->>DB: Get job status
     API-->>Proxy: {status: "queued", progress: 0%}
     Proxy-->>User: {status: "queued", progress: 0%}
-    
+
     %% Step 3: Background Processing
     Note over Worker: Worker picks job from queue
     Queue->>Worker: Job details
     Worker->>DB: Update status to "processing"
-    
+
     loop Processing Chunks
         Worker->>Worker: Simulate download chunk
         Worker->>DB: Update progress (10%, 20%...)
         Worker->>Queue: Publish progress event
     end
-    
+
     Worker->>Storage: Upload completed file
     Storage-->>Worker: File URL
     Worker->>DB: Update status to "completed"<br/>Store file URL
     Worker->>Queue: Publish completion event
-    
+
     %% Step 4: Real-time Updates (Webhook)
     Queue->>Webhook: Job completed notification
     Webhook->>User: Push notification (WebSocket/SSE)
-    
+
     %% Step 5: Result Retrieval
     User->>Proxy: GET /download/result/abc123
     Proxy->>API: Forward request
@@ -231,6 +232,7 @@ sequenceDiagram
 ```
 
 ## API Contract Changes
+
 ### New Endpoints
 
 ```typescript
@@ -334,49 +336,53 @@ CREATE INDEX idx_download_files_job_id ON download_files(job_id);
 
 ```typescript
 // Queue setup with Redis
-import { Queue, Worker } from 'bullmq';
+import { Queue, Worker } from "bullmq";
 
-const downloadQueue = new Queue('download-processing', {
-  connection: { host: 'redis', port: 6379 },
+const downloadQueue = new Queue("download-processing", {
+  connection: { host: "redis", port: 6379 },
   defaultJobOptions: {
     removeOnComplete: 100,
     removeOnFail: 50,
     attempts: 3,
-    backoff: { type: 'exponential', delay: 2000 }
-  }
+    backoff: { type: "exponential", delay: 2000 },
+  },
 });
 
 // Worker implementation
-const worker = new Worker('download-processing', async (job) => {
-  const { jobId, fileIds } = job.data;
-  
-  // Update status to processing
-  await updateJobStatus(jobId, 'processing');
-  
-  for (let i = 0; i < fileIds.length; i++) {
-    const fileId = fileIds[i];
-    
-    // Process individual file (simulate long operation)
-    await processFileDownload(fileId, jobId);
-    
-    // Update progress
-    const progress = (i + 1) / fileIds.length;
-    await updateJobProgress(jobId, progress, i + 1);
-    
-    // Publish progress event (WebSocket/SSE)
-    await publishProgressEvent(jobId, { progress, filesCompleted: i + 1 });
-  }
-  
-  // Generate pre-signed URLs and mark complete
-  const downloadUrls = await generatePresignedUrls(jobId);
-  await updateJobStatus(jobId, 'completed', { downloadUrls });
-  
-  // Send webhook notification if configured
-  await sendWebhookNotification(jobId);
-}, {
-  connection: { host: 'redis', port: 6379 },
-  concurrency: 5 // Process 5 jobs simultaneously
-});
+const worker = new Worker(
+  "download-processing",
+  async (job) => {
+    const { jobId, fileIds } = job.data;
+
+    // Update status to processing
+    await updateJobStatus(jobId, "processing");
+
+    for (let i = 0; i < fileIds.length; i++) {
+      const fileId = fileIds[i];
+
+      // Process individual file (simulate long operation)
+      await processFileDownload(fileId, jobId);
+
+      // Update progress
+      const progress = (i + 1) / fileIds.length;
+      await updateJobProgress(jobId, progress, i + 1);
+
+      // Publish progress event (WebSocket/SSE)
+      await publishProgressEvent(jobId, { progress, filesCompleted: i + 1 });
+    }
+
+    // Generate pre-signed URLs and mark complete
+    const downloadUrls = await generatePresignedUrls(jobId);
+    await updateJobStatus(jobId, "completed", { downloadUrls });
+
+    // Send webhook notification if configured
+    await sendWebhookNotification(jobId);
+  },
+  {
+    connection: { host: "redis", port: 6379 },
+    concurrency: 5, // Process 5 jobs simultaneously
+  },
+);
 ```
 
 ## Error Handling & Retry Logic
@@ -397,9 +403,9 @@ const QUEUE_JOB_TIMEOUT_MS = 1800000; // 30 minutes total
 const retryConfig = {
   attempts: 3,
   backoff: {
-    type: 'exponential',
-    delay: 2000 // 2s, 4s, 8s
-  }
+    type: "exponential",
+    delay: 2000, // 2s, 4s, 8s
+  },
 };
 ```
 
@@ -407,21 +413,21 @@ const retryConfig = {
 
 ```typescript
 // Handle job failures gracefully
-worker.on('failed', async (job, err) => {
+worker.on("failed", async (job, err) => {
   const { jobId } = job.data;
-  
+
   if (job.attemptsMade >= job.opts.attempts) {
     // Final failure - mark job as failed
-    await updateJobStatus(jobId, 'failed', { 
+    await updateJobStatus(jobId, "failed", {
       error: err.message,
-      finalAttempt: true 
+      finalAttempt: true,
     });
-    await sendWebhookNotification(jobId, 'failed');
+    await sendWebhookNotification(jobId, "failed");
   } else {
     // Retry - update with retry info
-    await updateJobStatus(jobId, 'retrying', {
+    await updateJobStatus(jobId, "retrying", {
       error: err.message,
-      nextRetryAt: new Date(Date.now() + getRetryDelay(job.attemptsMade))
+      nextRetryAt: new Date(Date.now() + getRetryDelay(job.attemptsMade)),
     });
   }
 });
@@ -439,13 +445,13 @@ rules:
     actions:
       - id: "timeout"
         value: "30" # 30 second timeout for API calls
-      
+
   - description: "Download API - WebSocket support"
     expression: 'http.request.uri.path matches "^/v1/download/subscribe"'
     actions:
       - id: "websocket"
         value: "on"
-      - id: "timeout" 
+      - id: "timeout"
         value: "300" # 5 minutes for WebSocket connections
 ```
 
@@ -462,7 +468,7 @@ upstream download_api {
 server {
     listen 80;
     server_name api.downloads.example.com;
-    
+
     # Short timeouts for API endpoints
     location ~ ^/v1/download/(initiate|status|result) {
         proxy_pass http://download_api;
@@ -470,24 +476,24 @@ server {
         proxy_connect_timeout 5s;
         proxy_send_timeout 30s;
         proxy_read_timeout 30s;
-        
+
         # Headers for load balancing
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
     }
-    
+
     # Longer timeouts for WebSocket/SSE
     location ~ ^/v1/download/subscribe {
         proxy_pass http://download_api;
         proxy_timeout 300s;
         proxy_read_timeout 300s;
-        
+
         # WebSocket support
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
-        
+
         # SSE support
         proxy_set_header Cache-Control no-cache;
         proxy_buffering off;
@@ -515,20 +521,20 @@ interface DownloadJob {
 
 export function useDownload() {
   const [jobs, setJobs] = useState<Map<string, DownloadJob>>(new Map());
-  
+
   const initiateDownload = useCallback(async (fileIds: number[]) => {
     try {
       const response = await fetch('/v1/download/initiate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           file_ids: fileIds,
           webhook_url: `${window.location.origin}/api/webhooks/download`
         })
       });
-      
+
       if (!response.ok) throw new Error('Failed to initiate download');
-      
+
       const job = await response.json();
       setJobs(prev => new Map(prev).set(job.job_id, {
         jobId: job.job_id,
@@ -537,17 +543,17 @@ export function useDownload() {
         filesCompleted: 0,
         filesTotal: fileIds.length
       }));
-      
+
       // Start polling for this job
       startPolling(job.job_id);
-      
+
       return job.job_id;
     } catch (error) {
       console.error('Download initiation failed:', error);
       throw error;
     }
   }, []);
-  
+
   const startPolling = useCallback((jobId: string) => {
     const pollInterval = setInterval(async () => {
       try {
@@ -556,7 +562,7 @@ export function useDownload() {
           clearInterval(pollInterval);
           return;
         }
-        
+
         const status = await response.json();
         setJobs(prev => {
           const updated = new Map(prev);
@@ -569,16 +575,16 @@ export function useDownload() {
           });
           return updated;
         });
-        
+
         // Stop polling when complete or failed
         if (status.status === 'completed' || status.status === 'failed') {
           clearInterval(pollInterval);
-          
+
           if (status.status === 'completed') {
             // Fetch download URLs
             const resultResponse = await fetch(`/v1/download/result/${jobId}`);
             const result = await resultResponse.json();
-            
+
             setJobs(prev => {
               const updated = new Map(prev);
               const job = updated.get(jobId);
@@ -594,11 +600,11 @@ export function useDownload() {
         clearInterval(pollInterval);
       }
     }, 3000); // Poll every 3 seconds
-    
+
     // Cleanup on unmount
     return () => clearInterval(pollInterval);
   }, []);
-  
+
   return { jobs: Array.from(jobs.values()), initiateDownload };
 }
 
@@ -613,7 +619,7 @@ export function DownloadProgress({ job }: { job: DownloadJob }) {
       default: return 'bg-gray-500';
     }
   };
-  
+
   return (
     <div className="border rounded-lg p-4 mb-4">
       <div className="flex justify-between items-center mb-2">
@@ -622,18 +628,18 @@ export function DownloadProgress({ job }: { job: DownloadJob }) {
           {job.status.toUpperCase()}
         </span>
       </div>
-      
+
       <div className="w-full bg-gray-200 rounded-full h-2 mb-2">
-        <div 
+        <div
           className="bg-blue-600 h-2 rounded-full transition-all duration-300"
           style={{ width: `${job.progress * 100}%` }}
         />
       </div>
-      
+
       <div className="text-sm text-gray-600">
         {job.filesCompleted} of {job.filesTotal} files completed ({Math.round(job.progress * 100)}%)
       </div>
-      
+
       {job.status === 'completed' && job.downloadUrls && (
         <div className="mt-3">
           <h4 className="font-medium mb-2">Download Links:</h4>
@@ -649,7 +655,7 @@ export function DownloadProgress({ job }: { job: DownloadJob }) {
           ))}
         </div>
       )}
-      
+
       {job.error && (
         <div className="mt-2 text-red-600 text-sm">
           Error: {job.error}
@@ -659,8 +665,6 @@ export function DownloadProgress({ job }: { job: DownloadJob }) {
   );
 }
 ```
-
-
 
 ## Implementation Summary
 
