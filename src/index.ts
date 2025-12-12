@@ -79,11 +79,11 @@ const app = new OpenAPIHono();
 // Request ID middleware - adds unique ID to each request
 app.use(async (c, next) => {
   const requestId = c.req.header("x-request-id") ?? crypto.randomUUID();
-  c.set("requestId", requestId);
+  // Set request ID in context
+  c.set("requestId" as any, requestId);
   c.header("x-request-id", requestId);
   await next();
 });
-
 // Security headers middleware (helmet-like)
 app.use(secureHeaders());
 
@@ -99,7 +99,7 @@ app.use(
       "X-RateLimit-Remaining",
     ],
     maxAge: 86400,
-  }),
+  })
 );
 
 // Request timeout middleware
@@ -115,22 +115,44 @@ app.use(
       c.req.header("x-forwarded-for")?.split(",")[0]?.trim() ??
       c.req.header("x-real-ip") ??
       "anonymous",
-  }),
+  })
 );
 
 // OpenTelemetry middleware
 app.use(
   httpInstrumentationMiddleware({
     serviceName: "delineate-hackathon-challenge",
-  }),
+  })
 );
 
-// Sentry middleware
+// Sentry middleware with tracing integration
 app.use(
   sentry({
     dsn: env.SENTRY_DSN,
-  }),
+    tracesSampleRate: 1.0, // Capture all traces in development
+  })
 );
+
+// Trace correlation middleware - ensures trace IDs are propagated and correlated
+app.use(async (c, next) => {
+  // Extract trace ID from traceparent header if present
+  const traceparent = c.req.header("traceparent");
+  if (traceparent) {
+    // Extract trace ID from traceparent header (format: 00-TRACE_ID-SPAN_ID-01)
+    const traceId = traceparent.split("-")[1];
+    if (traceId) {
+      // Add trace ID to response headers for frontend correlation
+      c.header("x-trace-id", traceId);
+
+      // Tag Sentry with trace ID for error correlation
+      const sentry = c.get("sentry" as any);
+      if (sentry) {
+        sentry.setTag("trace_id", traceId);
+      }
+    }
+  }
+  await next();
+});
 
 // Error response schema for OpenAPI
 const ErrorResponseSchema = z
@@ -141,10 +163,21 @@ const ErrorResponseSchema = z
   })
   .openapi("ErrorResponse");
 
-// Error handler with Sentry
+// Error handler with Sentry and trace correlation
 app.onError((err, c) => {
-  c.get("sentry").captureException(err);
-  const requestId = c.get("requestId") as string | undefined;
+  const sentry = c.get("sentry" as any);
+  // Get trace ID from OpenTelemetry context if available
+  const traceId = c.req.header("traceparent")?.split("-")[1] || undefined;
+
+  // Add context to Sentry error
+  if (traceId) {
+    sentry.setTag("trace_id", traceId);
+  }
+
+  // Get request ID
+  const requestId = c.get("requestId" as any) as string | undefined;
+  sentry.captureException(err);
+
   return c.json(
     {
       error: "Internal Server Error",
@@ -153,12 +186,11 @@ app.onError((err, c) => {
           ? err.message
           : "An unexpected error occurred",
       requestId,
+      traceId,
     },
-    500,
+    500
   );
-});
-
-// Schemas
+}); // Schemas
 const MessageResponseSchema = z
   .object({
     message: z.string(),
@@ -279,7 +311,7 @@ const checkS3Health = async (): Promise<boolean> => {
 
 // S3 availability check
 const checkS3Availability = async (
-  fileId: number,
+  fileId: number
 ): Promise<{
   available: boolean;
   s3Key: string | null;
@@ -385,14 +417,12 @@ app.openapi(healthRoute, async (c) => {
     {
       status,
       checks: {
-        storage: storageHealthy ? "ok" : "error",
+        storage: storageHealthy ? ("ok" as const) : ("error" as const),
       },
     },
-    httpStatus,
+    httpStatus
   );
-});
-
-// Download API Routes
+}); // Download API Routes
 const downloadInitiateRoute = createRoute({
   method: "post",
   path: "/v1/download/initiate",
@@ -495,7 +525,7 @@ app.openapi(downloadInitiateRoute, (c) => {
       status: "queued" as const,
       totalFileIds: file_ids.length,
     },
-    200,
+    200
   );
 });
 
@@ -506,7 +536,7 @@ app.openapi(downloadCheckRoute, async (c) => {
   // Intentional error for Sentry testing (hackathon challenge)
   if (sentry_test === "true") {
     throw new Error(
-      `Sentry test error triggered for file_id=${String(file_id)} - This should appear in Sentry!`,
+      `Sentry test error triggered for file_id=${String(file_id)} - This should appear in Sentry!`
     );
   }
 
@@ -516,7 +546,7 @@ app.openapi(downloadCheckRoute, async (c) => {
       file_id,
       ...s3Result,
     },
-    200,
+    200
   );
 });
 
@@ -576,7 +606,7 @@ app.openapi(downloadStartRoute, async (c) => {
   const minDelaySec = (env.DOWNLOAD_DELAY_MIN_MS / 1000).toFixed(0);
   const maxDelaySec = (env.DOWNLOAD_DELAY_MAX_MS / 1000).toFixed(0);
   console.log(
-    `[Download] Starting file_id=${String(file_id)} | delay=${delaySec}s (range: ${minDelaySec}s-${maxDelaySec}s) | enabled=${String(env.DOWNLOAD_DELAY_ENABLED)}`,
+    `[Download] Starting file_id=${String(file_id)} | delay=${delaySec}s (range: ${minDelaySec}s-${maxDelaySec}s) | enabled=${String(env.DOWNLOAD_DELAY_ENABLED)}`
   );
 
   // Simulate long-running download process
@@ -587,7 +617,7 @@ app.openapi(downloadStartRoute, async (c) => {
   const processingTimeMs = Date.now() - startTime;
 
   console.log(
-    `[Download] Completed file_id=${String(file_id)}, actual_time=${String(processingTimeMs)}ms, available=${String(s3Result.available)}`,
+    `[Download] Completed file_id=${String(file_id)}, actual_time=${String(processingTimeMs)}ms, available=${String(s3Result.available)}`
   );
 
   if (s3Result.available) {
@@ -600,7 +630,7 @@ app.openapi(downloadStartRoute, async (c) => {
         processingTimeMs,
         message: `Download ready after ${(processingTimeMs / 1000).toFixed(1)} seconds`,
       },
-      200,
+      200
     );
   } else {
     return c.json(
@@ -612,7 +642,7 @@ app.openapi(downloadStartRoute, async (c) => {
         processingTimeMs,
         message: `File not found after ${(processingTimeMs / 1000).toFixed(1)} seconds of processing`,
       },
-      200,
+      200
     );
   }
 });
@@ -671,7 +701,7 @@ const server = serve(
     if (env.NODE_ENV !== "production") {
       console.log(`API docs: http://localhost:${String(info.port)}/docs`);
     }
-  },
+  }
 );
 
 // Register shutdown handlers
