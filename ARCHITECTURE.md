@@ -46,8 +46,96 @@ Our solution implements a **Hybrid Polling + Background Processing + Webhook Pat
 └─────────────────┘ └─────────────────┘ └─────────────────┘
 ```
 
-## Technical Approach: Hybrid Pattern
+### System Workflow Diagram
 
+```mermaid
+graph TB
+    %% Layout clusters for better organization
+    subgraph "Frontend & API Gateway"
+        FE[React/Next.js Frontend]
+        CF[Cloudflare Proxy]
+        NG[Nginx/ALB]
+    end
+
+    subgraph "API Layer (Hono.js)"
+        API[Download API]
+        subgraph "API Endpoints"
+            Health[Health Endpoint]
+            Initiate[Initiate Download]
+            Status[Download Status by ID]
+            Result[Download Result by ID]
+        end
+    end
+
+    subgraph "Processing Layer"
+        Redis[(Redis)]
+        Queue[BullMQ Queue]
+        subgraph "Workers"
+            W1[Worker 1]
+            W2[Worker 2]
+            WN[Worker N]
+        end
+    end
+
+    subgraph "Storage Layer"
+        S3[S3 Storage]
+        DB[(Database)]
+    end
+
+    subgraph "Observability"
+        Monitor[Monitoring & Logging]
+    end
+
+    %% Clean flow lines
+    FE --> CF
+    CF --> NG
+    NG --> API
+    
+    %% API to processing
+    API --> Initiate
+    Initiate --> Queue
+    Initiate --> DB
+    
+    %% Queue processing
+    Queue --> W1
+    Queue --> W2
+    Queue --> WN
+    
+    %% Workers to storage
+    W1 --> S3
+    W2 --> S3
+    WN --> S3
+    
+    W1 --> Redis
+    W2 --> Redis
+    WN --> Redis
+    
+    %% Status & result flows
+    API --> Status
+    Status --> Redis
+    
+    API --> Result
+    Result --> S3
+    
+    %% Health check
+    API --> Health
+    Health --> Redis
+    Health --> S3
+    Health --> DB
+    
+    %% Observability
+    API --> Monitor
+    W1 --> Monitor
+    W2 --> Monitor
+    WN --> Monitor
+    
+    %% Webhook/callback
+    W1 -->|Callback| FE
+    W2 -->|Callback| FE
+    WN -->|Callback| FE
+```
+
+## Technical Approach: Hybrid Pattern
 ### Core Flow
 
 1. **Immediate Response**: Client gets `jobId` instantly (< 100ms)
@@ -82,8 +170,67 @@ User/Frontend → POST /download/initiate
         Download file directly from S3
 ```
 
-## API Contract Changes
+### Sequence Diagram
 
+```mermaid
+sequenceDiagram
+    title: Download Flow Sequence Diagram
+
+    participant User as User/Frontend
+    participant Proxy as Reverse Proxy
+    participant API as Download API
+    participant Queue as Job Queue (Redis)
+    participant Worker as Background Worker
+    participant Storage as S3 Storage
+    participant DB as Database
+    participant Webhook as Webhook Service
+
+    %% Step 1: Initiate Download
+    User->>Proxy: POST /download/initiate
+    Proxy->>API: Forward request
+    API->>DB: Create download job record
+    API->>Queue: Enqueue download job
+    API-->>Proxy: 202 Accepted (jobId: abc123)
+    Proxy-->>User: 202 Accepted (jobId: abc123)
+    
+    %% Step 2: Immediate Status Check
+    User->>Proxy: GET /download/status/abc123
+    Proxy->>API: Forward request
+    API->>DB: Get job status
+    API-->>Proxy: {status: "queued", progress: 0%}
+    Proxy-->>User: {status: "queued", progress: 0%}
+    
+    %% Step 3: Background Processing
+    Note over Worker: Worker picks job from queue
+    Queue->>Worker: Job details
+    Worker->>DB: Update status to "processing"
+    
+    loop Processing Chunks
+        Worker->>Worker: Simulate download chunk
+        Worker->>DB: Update progress (10%, 20%...)
+        Worker->>Queue: Publish progress event
+    end
+    
+    Worker->>Storage: Upload completed file
+    Storage-->>Worker: File URL
+    Worker->>DB: Update status to "completed"<br/>Store file URL
+    Worker->>Queue: Publish completion event
+    
+    %% Step 4: Real-time Updates (Webhook)
+    Queue->>Webhook: Job completed notification
+    Webhook->>User: Push notification (WebSocket/SSE)
+    
+    %% Step 5: Result Retrieval
+    User->>Proxy: GET /download/result/abc123
+    Proxy->>API: Forward request
+    API->>DB: Verify job completion
+    API->>Storage: Generate pre-signed URL
+    API-->>Proxy: 302 Redirect to S3 URL
+    Proxy-->>User: 302 Redirect
+    User->>Storage: Download file directly
+```
+
+## API Contract Changes
 ### New Endpoints
 
 ```typescript
