@@ -79,11 +79,12 @@ const app = new OpenAPIHono();
 // Request ID middleware - adds unique ID to each request
 app.use(async (c, next) => {
   const requestId = c.req.header("x-request-id") ?? crypto.randomUUID();
-  // Set request ID in context
-  c.set("requestId" as any, requestId);
+  // We'll store the requestId in a way that avoids TypeScript issues
+  c.res.headers.set("x-custom-request-id", requestId);
   c.header("x-request-id", requestId);
   await next();
 });
+
 // Security headers middleware (helmet-like)
 app.use(secureHeaders());
 
@@ -99,7 +100,7 @@ app.use(
       "X-RateLimit-Remaining",
     ],
     maxAge: 86400,
-  })
+  }),
 );
 
 // Request timeout middleware
@@ -115,14 +116,14 @@ app.use(
       c.req.header("x-forwarded-for")?.split(",")[0]?.trim() ??
       c.req.header("x-real-ip") ??
       "anonymous",
-  })
+  }),
 );
 
 // OpenTelemetry middleware
 app.use(
   httpInstrumentationMiddleware({
     serviceName: "delineate-hackathon-challenge",
-  })
+  }),
 );
 
 // Sentry middleware with tracing integration
@@ -130,7 +131,7 @@ app.use(
   sentry({
     dsn: env.SENTRY_DSN,
     tracesSampleRate: 1.0, // Capture all traces in development
-  })
+  }),
 );
 
 // Trace correlation middleware - ensures trace IDs are propagated and correlated
@@ -143,11 +144,14 @@ app.use(async (c, next) => {
     if (traceId) {
       // Add trace ID to response headers for frontend correlation
       c.header("x-trace-id", traceId);
-
+      
       // Tag Sentry with trace ID for error correlation
-      const sentry = c.get("sentry" as any);
-      if (sentry) {
-        sentry.setTag("trace_id", traceId);
+      try {
+        const sentryInstance = c.get("sentry");
+        sentryInstance.setTag("trace_id", traceId);
+      } catch (e) {
+        // Silently fail if Sentry is not available
+        console.debug("Could not tag Sentry with trace ID:", e);
       }
     }
   }
@@ -165,32 +169,45 @@ const ErrorResponseSchema = z
 
 // Error handler with Sentry and trace correlation
 app.onError((err, c) => {
-  const sentry = c.get("sentry" as any);
-  // Get trace ID from OpenTelemetry context if available
-  const traceId = c.req.header("traceparent")?.split("-")[1] || undefined;
-
-  // Add context to Sentry error
-  if (traceId) {
-    sentry.setTag("trace_id", traceId);
+  try {
+    const sentryInstance = c.get("sentry");
+    // Get trace ID from OpenTelemetry context if available
+    const traceId = c.req.header("traceparent")?.split("-")[1];
+    
+    // Add context to Sentry error
+    if (traceId) {
+      sentryInstance.setTag("trace_id", traceId);
+    }
+    
+    // Get request ID
+    const requestId = c.res.headers.get("x-custom-request-id");
+    sentryInstance.captureException(err);
+    
+    return c.json(
+      {
+        error: "Internal Server Error",
+        message:
+          env.NODE_ENV === "development"
+            ? err.message
+            : "An unexpected error occurred",
+        requestId,
+        traceId,
+      },
+      500
+    );
+  } catch {
+    // Fallback error handler
+    return c.json(
+      {
+        error: "Internal Server Error",
+        message: "An unexpected error occurred",
+      },
+      500
+    );
   }
+});
 
-  // Get request ID
-  const requestId = c.get("requestId" as any) as string | undefined;
-  sentry.captureException(err);
-
-  return c.json(
-    {
-      error: "Internal Server Error",
-      message:
-        env.NODE_ENV === "development"
-          ? err.message
-          : "An unexpected error occurred",
-      requestId,
-      traceId,
-    },
-    500
-  );
-}); // Schemas
+// Schemas
 const MessageResponseSchema = z
   .object({
     message: z.string(),
@@ -411,7 +428,7 @@ app.openapi(rootRoute, (c) => {
 
 app.openapi(healthRoute, async (c) => {
   const storageHealthy = await checkS3Health();
-  const status = storageHealthy ? "healthy" : "unhealthy";
+  const status = storageHealthy ? ("healthy" as const) : ("unhealthy" as const);
   const httpStatus = storageHealthy ? 200 : 503;
   return c.json(
     {
