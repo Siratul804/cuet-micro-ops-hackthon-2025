@@ -5,6 +5,7 @@ React frontend for Challenge 4 - Real-time monitoring dashboard with Sentry erro
 ## ✅ Features Implemented
 
 ### 1. **Sentry Integration**
+
 - **Error Boundary**: Wraps entire app with `Sentry.withProfiler(App)`
 - **Automatic Error Capture**: Failed API calls captured with context
 - **Performance Monitoring**: Browser tracing and session replay
@@ -12,17 +13,20 @@ React frontend for Challenge 4 - Real-time monitoring dashboard with Sentry erro
 - **Custom Error Logging**: Business logic errors with tags and extra data
 
 ### 2. **Real-time Health Monitoring**
+
 - **API Status**: Live health check every 5 seconds
 - **Visual Indicators**: Green/red status with storage connectivity
 - **Auto-refresh**: Continuous monitoring without page reload
 
 ### 3. **Download Job Tracking**
+
 - **Status Indicators**: Visual badges (completed/failed/simulating)
 - **Duration Tracking**: Shows processing time for each job
 - **Recent Activity**: List of all initiated downloads
 - **Mock Logic**: File IDs divisible by 7 succeed, others fail
 
 ### 4. **Error Testing & Debugging**
+
 - **Safe Error Testing**: Button triggers Sentry capture without breaking page
 - **Console Logging**: All Sentry events logged for debugging
 - **Mock Mode**: Works without Sentry DSN for development
@@ -30,6 +34,7 @@ React frontend for Challenge 4 - Real-time monitoring dashboard with Sentry erro
 ## 🚀 Quick Start
 
 ### Option 1: Docker (Recommended)
+
 ```bash
 # From project root
 docker compose -f docker/compose.dev.yml up -d
@@ -39,6 +44,7 @@ open http://localhost:5173
 ```
 
 ### Option 2: Manual Development
+
 ```bash
 # Install dependencies
 cd frontend
@@ -54,16 +60,19 @@ open http://localhost:5173
 ## 🧪 Testing the Dashboard
 
 ### 1. **Health Status**
+
 - Should show "✅ Operational" with green indicator
 - Storage should show "ok"
 
 ### 2. **Download Testing**
+
 - **Success Cases**: Click File ID 14000, 21000, 28000 (divisible by 7)
 - **Failure Cases**: Click File ID 10000, 50000 (not divisible by 7)
 - Watch status change: `simulating` → `completed`/`failed`
 - Check duration in "Recent Activity"
 
 ### 3. **Sentry Error Testing**
+
 - Click "🚨 Trigger Sentry Error" button
 - Should see alert: "✅ Sentry test error captured!"
 - Check browser console for logs:
@@ -76,6 +85,7 @@ open http://localhost:5173
 ## 🔧 Configuration
 
 ### Environment Variables
+
 ```bash
 # frontend/.env
 VITE_API_URL=http://localhost:3000
@@ -83,6 +93,7 @@ VITE_SENTRY_DSN=  # Optional - leave empty for mock mode
 ```
 
 ### Sentry Setup (Optional)
+
 1. Create account at https://sentry.io
 2. Create new React project
 3. Copy DSN and add to `.env`:
@@ -141,6 +152,7 @@ frontend/
 ## 🔍 Troubleshooting
 
 ### Frontend Not Loading
+
 ```bash
 # Check container status
 docker ps | grep frontend
@@ -150,6 +162,7 @@ docker logs delineate-delineate-frontend-1
 ```
 
 ### API Connection Issues
+
 ```bash
 # Test backend directly
 curl http://localhost:3000/health
@@ -159,6 +172,7 @@ curl -H "Origin: http://localhost:5173" http://localhost:3000/health
 ```
 
 ### Sentry Not Working
+
 1. Check browser console for Sentry initialization logs
 2. Verify DSN format in `.env` file
 3. Test with mock mode (empty DSN) first
@@ -183,6 +197,7 @@ docker build -f Dockerfile.prod -t delineate-frontend .
 ---
 
 **Status**: ✅ **Complete and Working**
+
 - Sentry error tracking implemented and tested
 - Real-time health monitoring functional
 - Download job tracking with visual indicators

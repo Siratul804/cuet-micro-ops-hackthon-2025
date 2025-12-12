@@ -85,11 +85,11 @@ function App() {
         prev.map((job) =>
           job.id === newJob.id
             ? {
-              ...job,
-              status: result.status === "completed" ? "completed" : "failed",
-              endTime,
-              duration,
-            }
+                ...job,
+                status: result.status === "completed" ? "completed" : "failed",
+                endTime,
+                duration,
+              }
             : job,
         ),
       );
@@ -113,11 +113,11 @@ function App() {
         prev.map((job) =>
           job.id === newJob.id
             ? {
-              ...job,
-              status: "failed",
-              endTime: Date.now(),
-              duration: (Date.now() - job.startTime) / 1000,
-            }
+                ...job,
+                status: "failed",
+                endTime: Date.now(),
+                duration: (Date.now() - job.startTime) / 1000,
+              }
             : job,
         ),
       );
@@ -150,7 +150,9 @@ function App() {
       },
     });
 
-    console.log("✅ Sentry test error captured! Check browser console and Sentry dashboard.");
+    console.log(
+      "✅ Sentry test error captured! Check browser console and Sentry dashboard.",
+    );
     alert("✅ Sentry test error captured! Check browser console for details.");
   };
 
@@ -164,28 +166,62 @@ function App() {
   }
 
   return (
-    <div style={{ padding: "20px", fontFamily: "Arial, sans-serif", maxWidth: "1200px", margin: "0 auto" }}>
-      <header style={{ marginBottom: "30px", borderBottom: "2px solid #eee", paddingBottom: "20px" }}>
-        <h1 style={{ color: "#333", margin: "0 0 10px 0" }}>Delineate Observability Dashboard</h1>
-        <p style={{ color: "#666", margin: "0" }}>Real-time monitoring with Sentry error tracking</p>
+    <div
+      style={{
+        padding: "20px",
+        fontFamily: "Arial, sans-serif",
+        maxWidth: "1200px",
+        margin: "0 auto",
+      }}
+    >
+      <header
+        style={{
+          marginBottom: "30px",
+          borderBottom: "2px solid #eee",
+          paddingBottom: "20px",
+        }}
+      >
+        <h1 style={{ color: "#333", margin: "0 0 10px 0" }}>
+          Delineate Observability Dashboard
+        </h1>
+        <p style={{ color: "#666", margin: "0" }}>
+          Real-time monitoring with Sentry error tracking
+        </p>
       </header>
 
       {/* Health Status Section */}
       <section style={{ marginBottom: "30px" }}>
-        <h2 style={{ color: "#333", marginBottom: "15px" }}>API Health Status</h2>
-        <div style={{
-          padding: "20px",
-          border: "2px solid " + (health?.status === "healthy" ? "#4CAF50" : "#f44336"),
-          borderRadius: "8px",
-          backgroundColor: health?.status === "healthy" ? "#f8fff8" : "#fff8f8"
-        }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "10px" }}>
-            <div style={{
-              width: "12px",
-              height: "12px",
-              borderRadius: "50%",
-              backgroundColor: health?.status === "healthy" ? "#4CAF50" : "#f44336"
-            }}></div>
+        <h2 style={{ color: "#333", marginBottom: "15px" }}>
+          API Health Status
+        </h2>
+        <div
+          style={{
+            padding: "20px",
+            border:
+              "2px solid " +
+              (health?.status === "healthy" ? "#4CAF50" : "#f44336"),
+            borderRadius: "8px",
+            backgroundColor:
+              health?.status === "healthy" ? "#f8fff8" : "#fff8f8",
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "10px",
+              marginBottom: "10px",
+            }}
+          >
+            <div
+              style={{
+                width: "12px",
+                height: "12px",
+                borderRadius: "50%",
+                backgroundColor:
+                  health?.status === "healthy" ? "#4CAF50" : "#f44336",
+              }}
+            ></div>
             <strong style={{ fontSize: "18px" }}>
               {health?.status === "healthy" ? "✅ Operational" : "❌ Offline"}
             </strong>
@@ -198,8 +234,17 @@ function App() {
 
       {/* Error Testing Section */}
       <section style={{ marginBottom: "30px" }}>
-        <h2 style={{ color: "#333", marginBottom: "15px" }}>Sentry Error Testing</h2>
-        <div style={{ padding: "20px", border: "2px solid #ff9800", borderRadius: "8px", backgroundColor: "#fff8f0" }}>
+        <h2 style={{ color: "#333", marginBottom: "15px" }}>
+          Sentry Error Testing
+        </h2>
+        <div
+          style={{
+            padding: "20px",
+            border: "2px solid #ff9800",
+            borderRadius: "8px",
+            backgroundColor: "#fff8f0",
+          }}
+        >
           <p style={{ margin: "0 0 15px 0", color: "#666" }}>
             Test Sentry error tracking by clicking the button below:
           </p>
@@ -213,7 +258,7 @@ function App() {
               borderRadius: "6px",
               fontSize: "16px",
               cursor: "pointer",
-              fontWeight: "bold"
+              fontWeight: "bold",
             }}
           >
             🚨 Trigger Sentry Error
@@ -223,8 +268,17 @@ function App() {
 
       {/* Download Testing Section */}
       <section style={{ marginBottom: "30px" }}>
-        <h2 style={{ color: "#333", marginBottom: "15px" }}>Download Testing</h2>
-        <div style={{ padding: "20px", border: "2px solid #2196F3", borderRadius: "8px", backgroundColor: "#f8fbff" }}>
+        <h2 style={{ color: "#333", marginBottom: "15px" }}>
+          Download Testing
+        </h2>
+        <div
+          style={{
+            padding: "20px",
+            border: "2px solid #2196F3",
+            borderRadius: "8px",
+            backgroundColor: "#f8fbff",
+          }}
+        >
           <p style={{ margin: "0 0 15px 0", color: "#666" }}>
             Test download functionality (file IDs divisible by 7 will succeed):
           </p>
@@ -240,15 +294,24 @@ function App() {
                   border: "none",
                   borderRadius: "6px",
                   cursor: "pointer",
-                  fontWeight: "bold"
+                  fontWeight: "bold",
                 }}
               >
                 📥 File ID {fileId}
               </button>
             ))}
           </div>
-          <div style={{ marginTop: "10px", display: "flex", gap: "10px", flexWrap: "wrap" }}>
-            <span style={{ color: "#666", fontSize: "14px" }}>Test failures:</span>
+          <div
+            style={{
+              marginTop: "10px",
+              display: "flex",
+              gap: "10px",
+              flexWrap: "wrap",
+            }}
+          >
+            <span style={{ color: "#666", fontSize: "14px" }}>
+              Test failures:
+            </span>
             {[10000, 50000].map((fileId) => (
               <button
                 key={fileId}
@@ -260,7 +323,7 @@ function App() {
                   border: "none",
                   borderRadius: "4px",
                   cursor: "pointer",
-                  fontSize: "14px"
+                  fontSize: "14px",
                 }}
               >
                 ❌ {fileId}
@@ -273,9 +336,22 @@ function App() {
       {/* Recent Activity */}
       <section>
         <h2 style={{ color: "#333", marginBottom: "15px" }}>Recent Activity</h2>
-        <div style={{ border: "2px solid #ddd", borderRadius: "8px", backgroundColor: "#fafafa" }}>
+        <div
+          style={{
+            border: "2px solid #ddd",
+            borderRadius: "8px",
+            backgroundColor: "#fafafa",
+          }}
+        >
           {downloads.length === 0 ? (
-            <p style={{ padding: "20px", margin: "0", color: "#666", textAlign: "center" }}>
+            <p
+              style={{
+                padding: "20px",
+                margin: "0",
+                color: "#666",
+                textAlign: "center",
+              }}
+            >
               No downloads initiated yet. Click a download button above to test.
             </p>
           ) : (
@@ -288,7 +364,7 @@ function App() {
                     borderBottom: "1px solid #eee",
                     display: "flex",
                     justifyContent: "space-between",
-                    alignItems: "center"
+                    alignItems: "center",
                   }}
                 >
                   <div>
@@ -298,21 +374,33 @@ function App() {
                     </div>
                   </div>
                   <div style={{ textAlign: "right" }}>
-                    <div style={{
-                      padding: "4px 12px",
-                      borderRadius: "12px",
-                      fontSize: "12px",
-                      fontWeight: "bold",
-                      color: "white",
-                      backgroundColor:
-                        job.status === "completed" ? "#4CAF50" :
-                          job.status === "failed" ? "#f44336" :
-                            job.status === "simulating" ? "#ff9800" : "#666"
-                    }}>
+                    <div
+                      style={{
+                        padding: "4px 12px",
+                        borderRadius: "12px",
+                        fontSize: "12px",
+                        fontWeight: "bold",
+                        color: "white",
+                        backgroundColor:
+                          job.status === "completed"
+                            ? "#4CAF50"
+                            : job.status === "failed"
+                              ? "#f44336"
+                              : job.status === "simulating"
+                                ? "#ff9800"
+                                : "#666",
+                      }}
+                    >
                       {job.status}
                     </div>
                     {job.duration && (
-                      <div style={{ fontSize: "12px", color: "#666", marginTop: "4px" }}>
+                      <div
+                        style={{
+                          fontSize: "12px",
+                          color: "#666",
+                          marginTop: "4px",
+                        }}
+                      >
                         {job.duration.toFixed(1)}s
                       </div>
                     )}
